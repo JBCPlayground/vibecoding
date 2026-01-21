@@ -49,7 +49,9 @@ def calculate_average(numbers: List[Union[int, float]]) -> float:
     return sum(numbers) / len(numbers)
 
 
-def filter_positive(numbers: List[Union[int, float]]) -> List[Union[int, float]]:
+def filter_positive(
+    numbers: List[Union[int, float]]
+) -> List[Union[int, float]]:
     """
     Filter out negative numbers from a list.
 

@@ -48,7 +48,8 @@ class TestCalculateAverage:
 
     def test_empty_list_raises_error(self):
         """Test that empty list raises ValueError."""
-        with pytest.raises(ValueError, match="Cannot calculate average of an empty list"):
+        expected_msg = "Cannot calculate average of an empty list"
+        with pytest.raises(ValueError, match=expected_msg):
             calculate_average([])
 
 
