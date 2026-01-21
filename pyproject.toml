@@ -3,6 +3,16 @@ name = "vibecoding"
 version = "0.1.0"
 description = "A Python project"
 requires-python = ">=3.8"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "sqlalchemy>=2.0.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+booktracker = "vibecoding.booktracker.cli:main"
 
 [tool.black]
 line-length = 100
@@ -19,3 +29,10 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
