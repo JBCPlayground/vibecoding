@@ -141,7 +141,7 @@ class TestBookToProperties:
 
         props = mock_notion_client._book_to_properties(book)
 
-        assert props["Added"]["date"]["start"] == "2025-01-01"
+        assert props["Date Added"]["date"]["start"] == "2025-01-01"
         assert props["Date Finished"]["date"]["start"] == "2025-01-15"
 
     def test_book_with_tags(self, mock_notion_client):
@@ -207,7 +207,7 @@ class TestNotionPageToBook:
             title="Book with Dates",
             author="Author",
             properties={
-                "Added": {"date": {"start": "2025-01-01"}},
+                "Date Added": {"date": {"start": "2025-01-01"}},
                 "Date Started": {"date": {"start": "2025-01-05"}},
                 "Date Finished": {"date": {"start": "2025-01-20"}},
             },

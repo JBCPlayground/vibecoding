@@ -18,6 +18,19 @@ def setup_test_db():
     reset_db()
     reset_config()
 
+    # Save original Notion environment variables
+    original_notion_key = os.environ.get("NOTION_API_KEY")
+    original_notion_db = os.environ.get("NOTION_DATABASE_ID")
+    original_notion_logs_db = os.environ.get("NOTION_READING_LOGS_DB_ID")
+
+    # Clear Notion env vars to ensure clean test environment
+    if "NOTION_API_KEY" in os.environ:
+        del os.environ["NOTION_API_KEY"]
+    if "NOTION_DATABASE_ID" in os.environ:
+        del os.environ["NOTION_DATABASE_ID"]
+    if "NOTION_READING_LOGS_DB_ID" in os.environ:
+        del os.environ["NOTION_READING_LOGS_DB_ID"]
+
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
@@ -32,6 +45,14 @@ def setup_test_db():
         del os.environ["BOOKTRACKER_DB_PATH"]
     if Path(db_path).exists():
         Path(db_path).unlink()
+
+    # Restore original Notion environment variables
+    if original_notion_key is not None:
+        os.environ["NOTION_API_KEY"] = original_notion_key
+    if original_notion_db is not None:
+        os.environ["NOTION_DATABASE_ID"] = original_notion_db
+    if original_notion_logs_db is not None:
+        os.environ["NOTION_READING_LOGS_DB_ID"] = original_notion_logs_db
 
 
 @pytest.fixture

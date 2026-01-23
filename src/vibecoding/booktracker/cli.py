@@ -341,21 +341,9 @@ def list_books(
         console.print(f"[dim]Showing {len(books)} of {total} books[/dim]")
 
 
-@app.command()
-def search(
-    query: str = typer.Argument(..., help="Search query"),
-    limit: int = typer.Option(10, "--limit", "-l", help="Max results"),
-) -> None:
-    """Search for books by title or author."""
-    db = get_db()
-    books = db.search_books(query, limit=limit)
-
-    if not books:
-        console.print(f"[dim]No books found matching: {query}[/dim]")
-        return
-
-    table = format_book_table(books, title=f"Search: {query}")
-    console.print(table)
+# Note: The 'search' command has been moved to a command group.
+# Use 'booktracker search query <text>' instead of 'booktracker search <text>'.
+# See the search_app command group defined below for all search-related commands.
 
 
 # ============================================================================

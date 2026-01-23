@@ -144,7 +144,9 @@ class NotionClient:
         if e.status == 429:
             retry_after = int(e.headers.get("Retry-After", 1))
             raise NotionRateLimitError(retry_after)
-        raise NotionError(f"Notion API error: {e.code} - {e.message}")
+        # Message is stored in args[0], not as .message attribute
+        error_msg = str(e.args[0]) if e.args else "Unknown error"
+        raise NotionError(f"Notion API error: {e.code} - {error_msg}")
 
     # ========================================================================
     # Query Operations
@@ -165,8 +167,8 @@ class NotionClient:
         while True:
             self._rate_limit()
             try:
-                response = self._client.databases.query(
-                    database_id=self.database_id,
+                response = self._client.data_sources.query(
+                    data_source_id=self.database_id,
                     page_size=page_size,
                     start_cursor=start_cursor,
                 )
@@ -219,8 +221,8 @@ class NotionClient:
         while True:
             self._rate_limit()
             try:
-                response = self._client.databases.query(
-                    database_id=self.database_id,
+                response = self._client.data_sources.query(
+                    data_source_id=self.database_id,
                     page_size=page_size,
                     start_cursor=start_cursor,
                     filter={
@@ -262,7 +264,7 @@ class NotionClient:
         self._rate_limit()
         try:
             response = self._client.pages.create(
-                parent={"database_id": self.database_id},
+                parent={"data_source_id": self.database_id},
                 properties=properties,
             )
             return response["id"]
@@ -281,15 +283,15 @@ class NotionClient:
         if book.author:
             props["Author"] = {"rich_text": [{"text": {"content": book.author}}]}
 
-        # Author (L,F)
+        # Author Sort
         if book.author_sort:
-            props["Author (L,F)"] = {
+            props["Author Sort"] = {
                 "rich_text": [{"text": {"content": book.author_sort}}]
             }
 
-        # Title (Sort)
+        # Title Sort
         if book.title_sort:
-            props["Title (Sort)"] = {
+            props["Title Sort"] = {
                 "rich_text": [{"text": {"content": book.title_sort}}]
             }
 
@@ -303,7 +305,7 @@ class NotionClient:
 
         # Dates
         if book.date_added:
-            props["Added"] = {"date": {"start": book.date_added.isoformat()}}
+            props["Date Added"] = {"date": {"start": book.date_added.isoformat()}}
 
         if book.date_started:
             props["Date Started"] = {"date": {"start": book.date_started.isoformat()}}
@@ -318,11 +320,11 @@ class NotionClient:
             props["ISBN"] = {"rich_text": [{"text": {"content": book.isbn}}]}
 
         if book.isbn13:
-            props["ISBN-13"] = {"rich_text": [{"text": {"content": book.isbn13}}]}
+            props["ISBN13"] = {"rich_text": [{"text": {"content": book.isbn13}}]}
 
-        # Pages
+        # Page Count
         if book.page_count:
-            props["Pages"] = {"number": book.page_count}
+            props["Page Count"] = {"number": book.page_count}
 
         # Publisher
         if book.publisher:
@@ -330,18 +332,18 @@ class NotionClient:
 
         # Publication Year
         if book.publication_year:
-            props["Publish Year"] = {"number": book.publication_year}
+            props["Publication Year"] = {"number": book.publication_year}
 
         # Series
         if book.series:
-            props["Book Series"] = {"rich_text": [{"text": {"content": book.series}}]}
+            props["Series"] = {"rich_text": [{"text": {"content": book.series}}]}
 
         if book.series_index:
             props["Series Index"] = {"number": book.series_index}
 
         # Format
         if book.format:
-            props["Formats"] = {"select": {"name": book.format}}
+            props["Format"] = {"select": {"name": book.format}}
 
         # URLs
         if book.amazon_url:
@@ -351,7 +353,7 @@ class NotionClient:
             props["Goodreads URL"] = {"url": book.goodreads_url}
 
         if book.library_url:
-            props["FCPL URL"] = {"url": book.library_url}
+            props["Library URL"] = {"url": book.library_url}
 
         # Description
         if book.description:
@@ -359,10 +361,10 @@ class NotionClient:
             desc = book.description[:2000]
             props["Description"] = {"rich_text": [{"text": {"content": desc}}]}
 
-        # Comments
+        # Notes
         if book.comments:
             comments = book.comments[:2000]
-            props["Comments"] = {"rich_text": [{"text": {"content": comments}}]}
+            props["Notes"] = {"rich_text": [{"text": {"content": comments}}]}
 
         # Progress
         if book.progress:
@@ -378,9 +380,9 @@ class NotionClient:
                 "rich_text": [{"text": {"content": book.recommended_by}}]
             }
 
-        # Library
+        # Library Source
         if book.library_source:
-            props["Library"] = {"select": {"name": book.library_source}}
+            props["Library Source"] = {"select": {"name": book.library_source}}
 
         # Tags (multi-select)
         if book.tags:
@@ -515,7 +517,7 @@ class NotionClient:
 
         # Extract dates
         date_added = None
-        added_prop = props.get("Added", {})
+        added_prop = props.get("Date Added", {})
         if added_prop.get("date"):
             date_added = self._parse_notion_date(added_prop["date"].get("start"))
 
@@ -568,28 +570,28 @@ class NotionClient:
 
         return BookCreate(
             title=page.title,
-            title_sort=get_rich_text("Title (Sort)"),
+            title_sort=get_rich_text("Title Sort"),
             author=page.author,
-            author_sort=get_rich_text("Author (L,F)"),
+            author_sort=get_rich_text("Author Sort"),
             status=status,
             rating=rating,
             date_added=date_added,
             date_started=date_started,
             date_finished=date_finished,
             isbn=get_rich_text("ISBN"),
-            isbn13=get_rich_text("ISBN-13"),
-            page_count=get_number("Pages"),
+            isbn13=get_rich_text("ISBN13"),
+            page_count=get_number("Page Count"),
             description=get_rich_text("Description"),
             publisher=get_rich_text("Publisher"),
-            publication_year=get_number("Publish Year"),
-            series=get_rich_text("Book Series"),
+            publication_year=get_number("Publication Year"),
+            series=get_rich_text("Series"),
             series_index=get_number("Series Index"),
-            format=get_select("Formats"),
-            library_source=get_select("Library"),
+            format=get_select("Format"),
+            library_source=get_select("Library Source"),
             amazon_url=get_url("Amazon URL"),
             goodreads_url=get_url("Goodreads URL"),
-            library_url=get_url("FCPL URL"),
-            comments=get_rich_text("Comments"),
+            library_url=get_url("Library URL"),
+            comments=get_rich_text("Notes"),
             progress=get_rich_text("Progress"),
             read_next=get_checkbox("Read Next"),
             recommended_by=get_rich_text("Recommended By"),
