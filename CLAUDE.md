@@ -4,105 +4,90 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Python project with a standard package structure. The main source code lives in `src/vibecoding/` and tests in `tests/`.
+Booktracker is a Notion-integrated personal reading tracker. It manages books from multiple sources (Notion, Calibre, Goodreads, Open Library) with bidirectional sync to a Notion database. The local SQLite database serves as the source of truth with a sync queue for offline-first operation.
 
 ## Essential Commands
 
-### Environment Setup
 ```bash
-# Create virtual environment
-python3 -m venv venv
+# Environment
+source venv/bin/activate
+pip install -r requirements.txt
 
-# Activate virtual environment
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate  # Windows
+# Run CLI
+python -m vibecoding.booktracker.cli --help
+booktracker --help  # if installed via pip install -e .
 
-# Install dependencies
-pip install -r requirements.txt          # Production dependencies
-pip install -r requirements-dev.txt      # Development dependencies
-```
+# Testing
+pytest                                    # all tests
+pytest tests/test_sync/test_notion.py    # specific file
+pytest -k "test_create"                  # pattern match
 
-### Testing
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_filename.py
-
-# Run specific test function
-pytest tests/test_filename.py::test_function_name
-
-# Run with coverage
-pytest --cov=src/vibecoding --cov-report=html
-
-# Run with verbose output
-pytest -v
-```
-
-### Code Quality
-```bash
-# Format code with Black
+# Code quality
 black src/ tests/
-
-# Check formatting without modifying
-black --check src/ tests/
-
-# Lint with flake8
 flake8 src/ tests/
-
-# Type checking with mypy
 mypy src/
 ```
 
-### Running Individual Checks
-```bash
-# Format a single file
-black src/vibecoding/module.py
+## Architecture
 
-# Lint a single file
-flake8 src/vibecoding/module.py
-
-# Type check a single file
-mypy src/vibecoding/module.py
+### Data Flow
+```
+[Notion] <--sync--> [SyncProcessor] <--> [SQLite DB] <--> [CLI]
+                          |
+[Calibre CSV] --import--> |
+[Goodreads CSV] --------> |
+[Open Library API] -----> |
 ```
 
-## Project Structure
+### Key Components
 
-```
-vibecoding/
-├── src/
-│   └── vibecoding/        # Main package source code
-│       └── __init__.py
-├── tests/                 # Test files (mirror src structure)
-│   └── __init__.py
-├── requirements.txt       # Production dependencies
-├── requirements-dev.txt   # Development dependencies
-├── pyproject.toml         # Project configuration (Black, mypy, pytest)
-└── README.md              # Project documentation
-```
+**CLI** (`cli.py`): Typer-based command interface with Rich formatting. Commands: `add`, `list`, `update`, `sync`, `import calibre`, `import goodreads`.
 
-## Development Workflow
+**Sync System** (`sync/`):
+- `notion.py`: NotionClient wraps Notion API with rate limiting and schema mapping
+- `queue.py`: SyncProcessor handles push/pull with conflict detection and retry logic
+- `conflict.py`: Detects and resolves bidirectional sync conflicts
 
-### Adding New Modules
-- Place new Python modules in `src/vibecoding/`
-- Create corresponding test files in `tests/` with `test_` prefix
-- Import from the package using: `from vibecoding.module import function`
+**Database** (`db/`):
+- `models.py`: SQLAlchemy ORM (Book, ReadingLog, SyncQueueItem)
+- `schemas.py`: Pydantic models for validation (BookCreate, BookUpdate, BookStatus enum)
+- `sqlite.py`: Database class with CRUD operations and sync queue management
 
-### Testing Conventions
-- Test files must start with `test_` (e.g., `test_utils.py`)
-- Test functions must start with `test_` (e.g., `def test_calculation():`)
-- Test classes must start with `Test` (e.g., `class TestCalculator:`)
+**Imports** (`imports/`): CSV parsers for Calibre and Goodreads with field mapping to unified schema.
 
-### Code Style
-- Line length: 100 characters (configured in pyproject.toml)
-- Formatter: Black (auto-formats on run)
-- Linter: flake8 (checks for style issues)
-- Type hints: Encouraged but not enforced by mypy
+**ETL** (`etl/`): Extract-transform-load pipeline with deduplication by ISBN/title+author.
 
-## Virtual Environment
+### Data Model
 
-Always ensure the virtual environment is activated before running commands. You can check if it's active by looking for `(venv)` in your terminal prompt or running:
-```bash
-which python  # Should point to venv/bin/python
-```
+The Book model unifies fields from all sources:
+- Core: title, author, status (reading/completed/wishlist/etc), rating (1-5)
+- Notion-specific: amazon_url, progress, read_next, recommended_by
+- Calibre-specific: calibre_id, calibre_uuid, file_formats, identifiers
+- Goodreads-specific: goodreads_id, review, read_count, shelves
+- Sync tracking: notion_page_id, local_modified_at, notion_modified_at
+
+### Sync Queue
+
+All local changes queue as SyncQueueItems (create/update/delete). The SyncProcessor:
+1. Pushes pending local changes to Notion
+2. Pulls Notion changes since last sync
+3. Detects conflicts when both sides modified
+4. Resolves via interactive prompt or auto (Notion wins)
+
+## Configuration
+
+Environment variables (or `.env` file):
+- `NOTION_API_KEY`: Notion integration token
+- `NOTION_DATABASE_ID`: Books database ID
+- `NOTION_READING_LOGS_DB_ID`: Optional reading logs database
+- `BOOKTRACKER_DB_PATH`: SQLite path (default: ~/OneDrive/booktracker/books.db)
+
+## Status Mapping
+
+Local → Notion status mapping:
+- reading → Borrowed
+- completed → Read
+- wishlist → Want to Read
+- on_hold → On Hold
+- dnf → DNF
+- owned → Owned
